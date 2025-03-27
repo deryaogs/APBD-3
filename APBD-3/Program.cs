@@ -2,8 +2,7 @@
 using System.Text.RegularExpressions;
 
 
-
-class DeviceManager
+public class DeviceManager
 {
     private readonly DeviceParser _deviceParser = new DeviceParser();
     private string _inputDeviceFile;
@@ -235,7 +234,7 @@ class DeviceManager
     }
 }
 
-abstract class Device
+public abstract class Device
 {
     public string Id { get; set; }
     public string Name { get; set; }
@@ -259,7 +258,7 @@ abstract class Device
     }
 }
 
-class PersonalComputer : Device
+public class PersonalComputer : Device
 {
     public string? OperatingSystem { get; set; }
     
@@ -293,7 +292,7 @@ class PersonalComputer : Device
     private bool CheckId(string id) => id.Contains("P-");
 }
 
-class Smartwatch : Device, IPowerNotify
+public class Smartwatch : Device, IPowerNotify
 {
     private int _batteryLevel;
 
@@ -354,7 +353,7 @@ class Smartwatch : Device, IPowerNotify
     private bool CheckId(string id) => id.Contains("E-");
 }
 
-class Embedded : Device
+public class Embedded : Device
 {
     public string NetworkName { get; set; }
     private string _ipAddress;
@@ -420,22 +419,22 @@ class Embedded : Device
 }
 
 
-class EmptySystemException : Exception
+public class EmptySystemException : Exception
 {
     public EmptySystemException() : base("Operation system is not installed.") { }
 }
 
-class EmptyBatteryException : Exception
+public class EmptyBatteryException : Exception
 {
     public EmptyBatteryException() : base("Battery level is too low to turn it on.") { }
 }
 
-class ConnectionException : Exception
+public class ConnectionException : Exception
 {
     public ConnectionException() : base("Wrong netowrk name.") { }
 }
 
-class DeviceParser
+public class DeviceParser
 {
     // Because we should have basic info + at least one additional info
     private const int MinimumRequiredElements = 4;
@@ -513,12 +512,12 @@ class DeviceParser
     
 }
 
-interface IPowerNotify
+public interface IPowerNotify
 {
     void Notify();
 }
 
-class Program
+public class Program
 {
     public static void Main()
     {
