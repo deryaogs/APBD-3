@@ -1,43 +1,78 @@
-﻿using System.Text;
-using System.Text.RegularExpressions;
+﻿/// <summary>
+/// Factory for creating a DeviceManager instance.
+/// </summary>
+public static class DeviceManagerFactory
+{
+    public static DeviceManager CreateDeviceManager()
+    {
+        return new DeviceManager(new FileDeviceStorage(), new CsvDeviceParser());
+    }
+}
 
+/// <summary>
+/// Interface for parsing devices from a file.
+/// </summary>
+public interface IDeviceParser
+{
+    List<Device> ParseDevices(string filePath);
+}
 
+public class CsvDeviceParser : IDeviceParser
+{
+    public List<Device> ParseDevices(string filePath)
+    {
+        // Implement CSV parsing logic
+        // Example: Read file, parse CSV, create devices
+        return new List<Device>();
+    }
+}
+
+/// <summary>
+/// Interface for storing and retrieving devices.
+/// </summary>
+public interface IDeviceStorage
+{
+    List<Device> LoadDevices();
+}
+
+public class FileDeviceStorage : IDeviceStorage
+{
+    public List<Device> LoadDevices()
+    {
+        // Implement file loading logic
+        // Example: Read devices from a file
+        return new List<Device>();
+    }
+}
+
+/// <summary>
+/// Manages a collection of electronic devices.
+/// </summary>
 public class DeviceManager
 {
-    private readonly DeviceParser _deviceParser = new DeviceParser();
-    private string _inputDeviceFile;
-    private const int MaxCapacity = 15;
-    private List<Device> _devices = new(capacity: MaxCapacity);
+    private readonly IDeviceStorage _storage;
+    private readonly IDeviceParser _parser;
+    private readonly List<Device> _devices;
 
-    public DeviceManager(string filePath)
+    public DeviceManager(IDeviceStorage storage, IDeviceParser parser)
     {
-        _inputDeviceFile = filePath;
-
-        if (!File.Exists(_inputDeviceFile))
-        {
-            throw new FileNotFoundException("The input device file could not be found.");
-        }
-
-        var lines = File.ReadAllLines(_inputDeviceFile);
-        ParseDevices(lines);
+        _storage = storage;
+        _parser = parser;
+        _devices = _storage.LoadDevices();
     }
 
-    public void AddDevice(Device newDevice)
+    public void AddDevice(Device device)
     {
         foreach (var storedDevice in _devices)
         {
-            if (storedDevice.Id.Equals(newDevice.Id))
+            if (storedDevice.Id.Equals(device.Id))
             {
-                throw new ArgumentException($"Device with ID {storedDevice.Id} is already stored.", nameof(newDevice));
+                throw new ArgumentException($"Device with ID {storedDevice.Id} is already stored.", nameof(device));
             }
         }
 
-        if (_devices.Count >= MaxCapacity)
-        {
-            throw new Exception("Device storage is full.");
-        }
         
-        _devices.Add(newDevice);
+        _devices.Add(device);
     }
 
     public void EditDevice(Device editDevice)
@@ -100,143 +135,46 @@ public class DeviceManager
 
     public void RemoveDeviceById(string deviceId)
     {
-        Device? targetDevice = null;
-        foreach (var storedDevice in _devices)
-        {
-            if (storedDevice.Id.Equals(deviceId))
-            {
-                targetDevice = storedDevice;
-                break;
-            }
-        }
-
-        if (targetDevice == null)
-        {
-            throw new ArgumentException($"Device with ID {deviceId} is not stored.", nameof(deviceId));
-        }
+        var deviceToRemove = _devices.FirstOrDefault(d => d.Id == deviceId);
+        if (deviceToRemove == null) throw new ArgumentException("Device not found.");
         
-        _devices.Remove(targetDevice);
-    }
-
-    public void TurnOnDevice(string id)
-    {
-        foreach (var storedDevice in _devices)
-        {
-            if (storedDevice.Id.Equals(id))
-            {
-                storedDevice.TurnOn();
-                return;
-            }
-        }
-        
-        throw new ArgumentException($"Device with ID {id} is not stored.", nameof(id));
-    }
-
-    public void TurnOffDevice(string id)
-    {
-        foreach (var storedDevice in _devices)
-        {
-            if (storedDevice.Id.Equals(id))
-            {
-                storedDevice.TurnOff();
-                return;
-            }
-        }
-        
-        throw new ArgumentException($"Device with ID {id} is not stored.", nameof(id));
-    }
-
-    public Device? GetDeviceById(string id)
-    {
-        foreach (var storedDevice in _devices)
-        {
-            if (storedDevice.Id.Equals(id))
-            {
-                return storedDevice;
-            }
-        }
-
-        return null;
+        _devices.Remove(deviceToRemove);
     }
 
     public void ShowAllDevices()
     {
-        foreach (var storedDevices in _devices)
+        foreach (var device in _devices)
         {
-            Console.WriteLine(storedDevices.ToString());
+            Console.WriteLine(device.ToString());
         }
     }
 
-    public void SaveDevices(string outputPath)
+    public Device GetDeviceById(string id)
     {
-        StringBuilder devicesSb = new();
-
-        foreach (var storedDevice in _devices)
-        {
-            if (storedDevice is Smartwatch smartwatchCopy)
-            {
-                devicesSb.AppendLine($"{smartwatchCopy.Id},{smartwatchCopy.Name}," +
-                                     $"{smartwatchCopy.IsEnabled},{smartwatchCopy.BatteryLevel}%");
-            }
-            else if (storedDevice is PersonalComputer pcCopy)
-            {
-                devicesSb.AppendLine($"{pcCopy.Id},{pcCopy.Name}," +
-                                     $"{pcCopy.IsEnabled},{pcCopy.OperatingSystem}");
-            }
-            else
-            {
-                var embeddedCopy = storedDevice as Embedded;
-                devicesSb.AppendLine($"{embeddedCopy.Id},{embeddedCopy.Name}," +
-                                     $"{embeddedCopy.IsEnabled},{embeddedCopy.IpAddress}," +
-                                     $"{embeddedCopy.NetworkName}");
-            }
-        }
-        
-        File.WriteAllLines(outputPath, devicesSb.ToString().Split('\n'));
+        return _devices.FirstOrDefault(d => d.Id == id);
     }
 
-    private void ParseDevices(string[] lines)
+    public void TurnOnDevice(string id)
     {
-        for (int i = 0; i < lines.Length; i++)
-        {
-            try
-            {
-                Device parsedDevice;
-                    
-                if (lines[i].StartsWith("P-"))
-                {
-                    parsedDevice = _deviceParser.ParsePC(lines[i], i);
-                }
-                else if (lines[i].StartsWith("SW-"))
-                {
-                    parsedDevice = _deviceParser.ParseSmartwatch(lines[i], i);
-                }
-                else if (lines[i].StartsWith("ED-"))
-                {
-                    parsedDevice = _deviceParser.ParseEmbedded(lines[i], i);
-                }
-                else
-                {
-                    throw new ArgumentException($"Line {i} is corrupted.");
-                }
-                    
-                AddDevice(parsedDevice);
-            }
-            catch (ArgumentException argEx)
-            {
-                Console.WriteLine(argEx.Message);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Something went wrong during parsing this line: {lines[i]}. The exception message: {ex.Message}");
-            }
-        }
+        var device = GetDeviceById(id);
+        device?.TurnOn();
     }
+
+    public void TurnOffDevice(string id)
+    {
+        var device = GetDeviceById(id);
+        device?.TurnOff();
+    }
+
+    
 }
 
+/// <summary>
+/// Base class for all devices.
+/// </summary>
 public abstract class Device
 {
-    public string Id { get; set; }
+    public string Id { get; protected set; }
     public string Name { get; set; }
     public bool IsEnabled { get; set; }
 
@@ -256,71 +194,28 @@ public abstract class Device
     {
         IsEnabled = false;
     }
+
+    public abstract void Update(Device updatedDevice);
 }
 
-public class PersonalComputer : Device
-{
-    public string? OperatingSystem { get; set; }
-    
-    public PersonalComputer(string id, string name, bool isEnabled, string? operatingSystem) : base(id, name, isEnabled)
-    {
-        if (!CheckId(id))
-        {
-            throw new ArgumentException("Invalid ID value. Required format: P-1", id);
-        }
-        
-        OperatingSystem = operatingSystem;
-    }
-
-    public override void TurnOn()
-    {
-        if (OperatingSystem is null)
-        {
-            throw new EmptySystemException();
-        }
-
-        base.TurnOn();
-    }
-
-    public override string ToString()
-    {
-        string enabledStatus = IsEnabled ? "enabled" : "disabled";
-        string osStatus = OperatingSystem is null ? "has not OS" : $"has {OperatingSystem}";
-        return $"PC {Name} ({Id}) is {enabledStatus} and {osStatus}";
-    }
-
-    private bool CheckId(string id) => id.Contains("P-");
-}
-
+/// <summary>
+/// Smartwatch device class.
+/// </summary>
 public class Smartwatch : Device, IPowerNotify
 {
-    private int _batteryLevel;
+    public int BatteryLevel { get; set; }
 
-    public int BatteryLevel
-    {
-        get => _batteryLevel;
-        set
-        {
-            if (value < 0 || value > 100)
-            {
-                throw new ArgumentException("Invalid battery level value. Must be between 0 and 100.", nameof(value));
-            }
-            
-            _batteryLevel = value;
-            if (_batteryLevel < 20)
-            {
-                Notify();
-            }
-        }
-    }
-    
     public Smartwatch(string id, string name, bool isEnabled, int batteryLevel) : base(id, name, isEnabled)
     {
-        if (CheckId(id))
-        {
-            throw new ArgumentException("Invalid ID value. Required format: SW-1", id);
-        }
         BatteryLevel = batteryLevel;
+    }
+
+    public override void Update(Device updatedDevice)
+    {
+        if (updatedDevice is Smartwatch updatedSmartwatch)
+        {
+            BatteryLevel = updatedSmartwatch.BatteryLevel;
+        }
     }
 
     public void Notify()
@@ -346,218 +241,131 @@ public class Smartwatch : Device, IPowerNotify
 
     public override string ToString()
     {
-        string enabledStatus = IsEnabled ? "enabled" : "disabled";
-        return $"Smartwatch {Name} ({Id}) is {enabledStatus} and has {BatteryLevel}%";
+        return $"Smartwatch {Name} ({Id}) is {(IsEnabled ? "enabled" : "disabled")} and has {BatteryLevel}% battery";
     }
-    
-    private bool CheckId(string id) => id.Contains("E-");
 }
 
+/// <summary>
+/// Embedded device class.
+/// </summary>
 public class Embedded : Device
 {
+    public string IpAddress { get; set; }
     public string NetworkName { get; set; }
-    private string _ipAddress;
-    private bool _isConnected = false;
 
-    public string IpAddress
-    {
-        get => _ipAddress;
-        set
-        {
-            Regex ipRegex = new Regex("^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$");
-            if (ipRegex.IsMatch(value))
-            {
-                _ipAddress = value;
-            }
-
-            throw new ArgumentException("Wrong IP address format.");
-        }
-    }
-    
     public Embedded(string id, string name, bool isEnabled, string ipAddress, string networkName) : base(id, name, isEnabled)
     {
-        if (CheckId(id))
-        {
-            throw new ArgumentException("Invalid ID value. Required format: E-1", id);
-        }
-
         IpAddress = ipAddress;
         NetworkName = networkName;
     }
 
-    public override void TurnOn()
+    public override void Update(Device updatedDevice)
     {
-        Connect();
-        base.TurnOn();
+        if (updatedDevice is Embedded updatedEmbedded)
+        {
+            IpAddress = updatedEmbedded.IpAddress;
+            NetworkName = updatedEmbedded.NetworkName;
+        }
     }
 
-    public override void TurnOff()
+    public override void TurnOn()
     {
-        _isConnected = false;
-        base.TurnOff();
+        base.TurnOn();
+        // Additional logic for connecting to network, if needed
     }
 
     public override string ToString()
     {
-        string enabledStatus = IsEnabled ? "enabled" : "disabled";
-        return $"Embedded device {Name} ({Id}) is {enabledStatus} and has IP address {IpAddress}";
+        return $"Embedded device {Name} ({Id}) is {(IsEnabled ? "enabled" : "disabled")} and has IP address {IpAddress}";
     }
-
-    private void Connect()
-    {
-        if (NetworkName.Contains("MD Ltd."))
-        {
-            _isConnected = true;
-        }
-        else
-        {
-            throw new ConnectionException();
-        }
-    }
-    
-    private bool CheckId(string id) => id.Contains("E-");
 }
 
-
-public class EmptySystemException : Exception
+/// <summary>
+/// PersonalComputer device class.
+/// </summary>
+public class PersonalComputer : Device
 {
-    public EmptySystemException() : base("Operation system is not installed.") { }
-}
+    public string OperatingSystem { get; set; }
 
-public class EmptyBatteryException : Exception
-{
-    public EmptyBatteryException() : base("Battery level is too low to turn it on.") { }
-}
-
-public class ConnectionException : Exception
-{
-    public ConnectionException() : base("Wrong netowrk name.") { }
-}
-
-public class DeviceParser
-{
-    // Because we should have basic info + at least one additional info
-    private const int MinimumRequiredElements = 4;
-
-    private const int IndexPosition = 0;
-    private const int DeviceNamePosition = 1;
-    private const int EnabledStatusPosition = 2;
-    
-    public PersonalComputer ParsePC(string line, int lineNumber)
+    public PersonalComputer(string id, string name, bool isEnabled, string operatingSystem) 
+        : base(id, name, isEnabled)
     {
-        const int SystemPosition = 3;
-        
-        var infoSplits = line.Split(',');
-
-        if (infoSplits.Length < MinimumRequiredElements)
-        {
-            throw new ArgumentException($"Corrupted line {lineNumber}", line);
-        }
-        
-        if (bool.TryParse(infoSplits[EnabledStatusPosition], out bool _) is false)
-        {
-            throw new ArgumentException($"Corrupted line {lineNumber}: can't parse enabled status for computer.", line);
-        }
-        
-        return new PersonalComputer(infoSplits[IndexPosition], infoSplits[DeviceNamePosition], 
-            bool.Parse(infoSplits[EnabledStatusPosition]), infoSplits[SystemPosition]);
+        OperatingSystem = operatingSystem;
     }
 
-    public Smartwatch ParseSmartwatch(string line, int lineNumber)
+    public override void Update(Device updatedDevice)
     {
-        const int BatteryPosition = 3;
-        
-        var infoSplits = line.Split(',');
-
-        if (infoSplits.Length < MinimumRequiredElements)
+        if (updatedDevice is PersonalComputer updatedPC)
         {
-            throw new ArgumentException($"Corrupted line {lineNumber}", line);
+            OperatingSystem = updatedPC.OperatingSystem;
         }
-        
-        if (bool.TryParse(infoSplits[EnabledStatusPosition], out bool _) is false)
-        {
-            throw new ArgumentException($"Corrupted line {lineNumber}: can't parse enabled status for smartwatch.", line);
-        }
-
-        if (int.TryParse(infoSplits[BatteryPosition].Replace("%", ""), out int _) is false)
-        {
-            throw new ArgumentException($"Corrupted line {lineNumber}: can't parse battery level for smartwatch.", line);
-        }
-
-        return new Smartwatch(infoSplits[IndexPosition], infoSplits[DeviceNamePosition], 
-            bool.Parse(infoSplits[EnabledStatusPosition]), int.Parse(infoSplits[BatteryPosition].Replace("%", "")));
     }
 
-    public Embedded ParseEmbedded(string line, int lineNumber)
+    public override void TurnOn()
     {
-        const int IpAddressPosition = 3;
-        const int NetworkNamePosition = 4;
-        
-        var infoSplits = line.Split(',');
-
-        if (infoSplits.Length < MinimumRequiredElements + 1)
-        {
-            throw new ArgumentException($"Corrupted line {lineNumber}", line);
-        }
-        
-        if (bool.TryParse(infoSplits[EnabledStatusPosition], out bool _) is false)
-        {
-            throw new ArgumentException($"Corrupted line {lineNumber}: can't parse enabled status for embedded device.", line);
-        }
-
-        return new Embedded(infoSplits[IndexPosition], infoSplits[DeviceNamePosition], 
-            bool.Parse(infoSplits[EnabledStatusPosition]), infoSplits[IpAddressPosition], 
-            infoSplits[NetworkNamePosition]);
+        base.TurnOn();
+        Console.WriteLine($"Personal computer {Name} is now on.");
     }
-    
+
+    public override string ToString()
+    {
+        return $"Personal Computer {Name} ({Id}) is {(IsEnabled ? "enabled" : "disabled")} with OS {OperatingSystem}";
+    }
 }
 
+/// <summary>
+/// Interface for devices that need to notify when power is low.
+/// </summary>
 public interface IPowerNotify
 {
     void Notify();
 }
 
+/// <summary>
+/// Custom exception for when battery level is too low.
+/// </summary>
+public class EmptyBatteryException : Exception
+{
+    public EmptyBatteryException() : base("Battery level is too low to turn it on.") { }
+}
+
+/// <summary>
+/// Main program entry point.
+/// </summary>
 public class Program
 {
     public static void Main()
     {
         try
         {
-            DeviceManager deviceManager = new("/Users/deryaogus/Desktop/APBD-3/APBD-3/input.txt");
-            
+            // Creating DeviceManager instance using Factory Pattern
+            DeviceManager deviceManager = DeviceManagerFactory.CreateDeviceManager();
+
             Console.WriteLine("Devices presented after file read.");
             deviceManager.ShowAllDevices();
-            
-            Console.WriteLine("Create new computer with correct data and add it to device store.");
+
+            Console.WriteLine("Create new personal computer and add it to device store.");
             {
                 PersonalComputer computer = new("P-2", "ThinkPad T440", false, null);
                 deviceManager.AddDevice(computer);
             }
-            
+
             Console.WriteLine("Let's try to enable this PC");
-            try
-            {
-                deviceManager.TurnOnDevice("P-2");
-            }
-            catch (EmptySystemException ex)
-            {
-                Console.WriteLine(ex.Message);
-            }
             
+
             Console.WriteLine("Let's install OS for this PC");
-            
             PersonalComputer editComputer = new("P-2", "ThinkPad T440", true, "Arch Linux");
             deviceManager.EditDevice(editComputer);
-            
+
             Console.WriteLine("Let's try to enable this PC");
             deviceManager.TurnOnDevice("P-2");
-            
+
             Console.WriteLine("Let's turn off this PC");
             deviceManager.TurnOffDevice("P-2");
-            
+
             Console.WriteLine("Delete this PC");
             deviceManager.RemoveDeviceById("P-2");
-            
+
             Console.WriteLine("Devices presented after all operations.");
             deviceManager.ShowAllDevices();
         }
