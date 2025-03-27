@@ -1,7 +1,7 @@
 ﻿using System.Text;
 using System.Text.RegularExpressions;
 
-namespace Tutorial3_Task;
+
 
 class DeviceManager
 {
