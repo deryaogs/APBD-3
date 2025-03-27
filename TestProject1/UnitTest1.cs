@@ -57,7 +57,19 @@ public class DeviceManagerTests : IDisposable
     }
 
     [Fact]
-    
+    public void AddDevice_Should_Throw_Exception_When_Capacity_Exceeded()
+    {
+        // Arrange - fill up the repository
+        for (int i = 2; i <= 15; i++)
+        {
+            _deviceManager.AddDevice(new PersonalComputer($"P-{i}", $"PC{i}", false, "OS"));
+        }
+
+        // Act & Assert
+        var exception = Assert.Throws<InvalidOperationException>(() => 
+            _deviceManager.AddDevice(new PersonalComputer("P-16", "ExtraPC", false, "OS")));
+        Assert.Contains("Device storage is full", exception.Message);
+    }
 
     [Fact]
     public void RemoveDeviceById_Should_Remove_Existing_Device()
@@ -139,7 +151,16 @@ public class DeviceManagerTests : IDisposable
         Assert.Contains("Device with ID P-99 not found", exception.Message);
     }
 
-    
+    [Fact]
+    public void EditDevice_Should_Throw_For_Type_Mismatch()
+    {
+        // Arrange - trying to replace a Smartwatch with a PC
+        var wrongTypeDevice = new PersonalComputer("SW-1", "WrongType", true, "OS");
+
+        // Act & Assert
+        var exception = Assert.Throws<ArgumentException>(() => _deviceManager.EditDevice(wrongTypeDevice));
+        Assert.Contains("Type mismatch between devices", exception.Message);
+    }
 
     [Fact]
     public void GetDeviceById_Should_Return_Null_For_Nonexistent_Device()
